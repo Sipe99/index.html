@@ -1,0 +1,1995 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Steuerung</title>
+<style>
+  :root{
+    --bg: #0d0f14;
+    --bg2: #151824;
+    --card: #1b1f2e;
+    --card2: #232839;
+    --line: #2b3146;
+    --text: #eef0f6;
+    --text-dim: #8a90a6;
+    --accent: #7c5cff;
+    --accent2: #4fd1c5;
+    --danger: #ff5c7a;
+    --ok: #4fd18a;
+    --radius: 18px;
+  }
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; }
+  body{
+    margin:0;
+    background: radial-gradient(1200px 800px at 50% -10%, #1a1330 0%, var(--bg) 55%);
+    color: var(--text);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    min-height:100vh;
+    padding-bottom: 88px;
+    user-select:none;
+    overscroll-behavior:none;
+  }
+  header{
+    position: sticky; top:0; z-index:30;
+    padding: 14px 20px 12px;
+    display:flex; align-items:center; justify-content:space-between;
+    background: rgba(13,15,20,.72);
+    backdrop-filter: blur(18px) saturate(150%);
+    -webkit-backdrop-filter: blur(18px) saturate(150%);
+    border-bottom: 1px solid var(--line);
+  }
+  header h1{ font-size:28px; margin:0; font-weight:800; letter-spacing:-0.4px; }
+  .status-pill{
+    display:flex; align-items:center; gap:7px;
+    font-size:12.5px; color:var(--text-dim);
+    background:var(--card); border:1px solid var(--line);
+    padding:6px 12px; border-radius:999px;
+  }
+  .dot{ width:8px; height:8px; border-radius:50%; background:var(--danger); flex-shrink:0; transition:background .2s; }
+  .dot.on{ background:var(--ok); box-shadow:0 0 8px var(--ok); }
+  .dot.pending{ background:#e6b400; }
+
+  main{ padding: 4px 16px 16px; max-width:520px; margin:0 auto; }
+  .screen{ display:none; animation: fade .18s ease; }
+  .screen.active{ display:block; }
+  @keyframes fade{ from{opacity:0; transform:translateY(4px);} to{opacity:1; transform:none;} }
+
+  .card{
+    background: linear-gradient(180deg, var(--card), var(--card2));
+    border:1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-bottom: 14px;
+  }
+  .card h2{ font-size:13px; text-transform:uppercase; letter-spacing:1px; color:var(--text-dim); margin:0 0 14px; font-weight:700; }
+
+  /* Start/Stop */
+  .power-row{ display:flex; align-items:center; justify-content:center; gap:26px; padding: 6px 0 8px; }
+  .power-wrap{ display:flex; justify-content:center; }
+
+  .live-tube{
+    position:relative; width:44px; height:150px; border-radius:22px;
+    background: linear-gradient(180deg, var(--bg2), var(--card2));
+    border:1px solid var(--line); overflow:hidden; flex-shrink:0;
+    box-shadow: inset 0 2px 6px rgba(0,0,0,.4);
+  }
+  .live-tube-band{
+    position:absolute; left:0; right:0; background: rgba(124,92,255,.14);
+    border-top:1px dashed rgba(124,92,255,.4); border-bottom:1px dashed rgba(124,92,255,.4);
+  }
+  .live-tube-dot{
+    position:absolute; left:50%; top:100%;
+    width:34px; height:34px; margin-left:-17px; margin-top:-17px;
+    border-radius:50%;
+    background: radial-gradient(circle at 35% 30%, #ffe08a, #ffc94a 65%);
+    box-shadow: 0 0 14px rgba(255,201,74,.75), 0 2px 4px rgba(0,0,0,.4);
+    cursor: grab; touch-action: none;
+  }
+  .live-tube-dot:active{ cursor: grabbing; }
+  .live-tube-label{
+    text-align:center; font-size:10.5px; color:var(--text-dim); margin-top:8px;
+  }
+  .power-btn{
+    width:150px; height:150px; border-radius:50%;
+    border:none; cursor:pointer;
+    background: radial-gradient(circle at 35% 30%, #2a2f42, #171a26 70%);
+    border: 2px solid var(--line);
+    color: var(--text);
+    font-size:16px; font-weight:700; letter-spacing:.5px;
+    display:flex; align-items:center; justify-content:center;
+    transition: all .15s ease;
+    box-shadow: 0 0 0 0 rgba(124,92,255,0);
+  }
+  .power-btn.running{
+    background: radial-gradient(circle at 35% 30%, #ff6b7f, #d4283f 70%);
+    border-color: transparent;
+    box-shadow: 0 0 32px rgba(255,92,122,.6);
+  }
+  .power-btn:active{ transform: scale(.96); }
+
+  .fav-grid{ display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; margin-top:16px; }
+  .fav-box{
+    position:relative; background:var(--bg2); border:1px solid var(--line);
+    border-radius:14px; padding:14px 8px 12px; text-align:center; cursor:pointer;
+    transition: transform .12s ease;
+  }
+  .fav-box:active{ transform: scale(.95); }
+  .fav-box .fav-name{ font-size:13.5px; font-weight:700; margin-top:2px; }
+  .fav-box .fav-meta{ font-size:10.5px; color:var(--text-dim); margin-top:2px; }
+  .fav-box .fav-gear{
+    position:absolute; top:4px; right:4px; width:24px; height:24px;
+    border-radius:50%; background:var(--card2); border:1px solid var(--line);
+    display:flex; align-items:center; justify-content:center; font-size:12px;
+    color:var(--text-dim); cursor:pointer;
+  }
+  .fav-box .fav-gear:active{ transform: scale(.9); }
+  .fav-empty-hint{ grid-column: 1 / -1; text-align:center; color:var(--text-dim); font-size:12.5px; padding:6px 0; }
+
+  .star-btn{ background:none; border:none; font-size:20px; cursor:pointer; padding:2px 6px; color:var(--text-dim); flex-shrink:0; }
+  .star-btn.on{ color:#ffc94a; }
+
+  .pause-speed-head{ display:flex; align-items:center; justify-content:space-between; margin-top:-6px; margin-bottom:14px; }
+  .pause-speed-head .hint{ font-size:11.5px; color:var(--text-dim); }
+  .mini-gear{
+    width:26px; height:26px; border-radius:50%; flex-shrink:0;
+    background:var(--card2); border:1px solid var(--line); color:var(--text-dim);
+    display:flex; align-items:center; justify-content:center; font-size:12px; cursor:pointer;
+  }
+  .mini-gear.on{ color:var(--accent2); border-color:var(--accent2); }
+  .mini-gear-inline{ display:inline-flex; vertical-align:middle; margin-left:4px; }
+  .pause-speed-row{ max-height:0; overflow:hidden; transition:max-height .22s ease; }
+  .pause-speed-row.open{ max-height:100px; margin-bottom:18px; }
+  .disabled-row{ opacity:.35; pointer-events:none; }
+
+  .slider-row{ margin-bottom: 18px; }
+  .slider-row:last-child{ margin-bottom:0; }
+  .slider-label{ display:flex; justify-content:space-between; font-size:14px; margin-bottom:10px; }
+  .slider-label .val{ color: var(--accent2); font-weight:700; font-variant-numeric: tabular-nums; }
+  input[type=range]{
+    -webkit-appearance:none; appearance:none;
+    width:100%; height:8px; border-radius:999px;
+    background: var(--bg2);
+    outline:none;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:26px; height:26px; border-radius:50%;
+    background: var(--text);
+    border: 4px solid var(--accent);
+    cursor:pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,.4);
+  }
+  input[type=range]::-moz-range-thumb{
+    width:26px; height:26px; border-radius:50%;
+    background: var(--text);
+    border: 4px solid var(--accent);
+    cursor:pointer;
+  }
+  .range-track{ position:relative; height:8px; margin: 20px 0 8px; }
+  .range-track .base{ position:absolute; inset:0; background:var(--bg2); border-radius:999px; }
+  .range-track .fill{ position:absolute; height:100%; background: linear-gradient(90deg, var(--accent), var(--accent2)); border-radius:999px; }
+  .range-track input[type=range]{ position:absolute; top:-9px; width:100%; height:26px; background:transparent; pointer-events:none; }
+  .range-track input[type=range]::-webkit-slider-thumb{ pointer-events:all; }
+  .range-track input[type=range]::-moz-range-thumb{ pointer-events:all; }
+  .range-track input[type=range].now-marker{ top:-15px; height:38px; z-index:3; }
+  .range-track input[type=range].now-marker::-webkit-slider-thumb{
+    width:14px; height:38px; border-radius:6px;
+    background: #ffc94a; border: 2px solid #2a1f04;
+    box-shadow: 0 0 8px rgba(255,201,74,.7);
+  }
+  .range-track input[type=range].now-marker::-moz-range-thumb{
+    width:14px; height:38px; border-radius:6px;
+    background: #ffc94a; border: 2px solid #2a1f04;
+  }
+
+  .btn{
+    border:none; border-radius:14px; padding:14px 16px;
+    font-size:15px; font-weight:700; cursor:pointer;
+    color:var(--text); background:var(--card2); border:1px solid var(--line);
+    transition: transform .1s ease, background .15s ease;
+  }
+  .btn:active{ transform: scale(.97); }
+  .btn-block{ width:100%; }
+  .btn-accent{ background: linear-gradient(135deg, var(--accent), #5c3fe0); border-color:transparent; }
+  .btn-ghost{ background:transparent; }
+  .btn-danger{ color: var(--danger); border-color: rgba(255,92,122,.35); }
+  .row{ display:flex; gap:10px; }
+  .row > *{ flex:1; }
+
+  .random-btn{
+    display:flex; align-items:center; justify-content:center; gap:10px;
+    width:100%; padding:16px; border-radius:16px;
+    font-size:15px; font-weight:700;
+    background: linear-gradient(135deg, #ff8a5c, #ff5c9c);
+    border:none; color:#1a0e14; cursor:pointer;
+  }
+  .random-btn:active{ transform:scale(.98); }
+  .toggle-row{ display:flex; align-items:center; justify-content:space-between; margin-top:14px; font-size:14px; }
+  .accordion-toggle{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 2px 2px; margin-top:14px; border-top:1px solid var(--line);
+    cursor:pointer; font-size:14.5px; color:var(--text-dim); font-weight:600;
+  }
+  .accordion-toggle .chevron{ transition: transform .22s ease; font-size:14px; }
+  .accordion-toggle.open .chevron{ transform: rotate(180deg); }
+  .accordion-body{ max-height:0; overflow:hidden; transition: max-height .28s ease; }
+  .accordion-body.open{ max-height:900px; padding-top:16px; }
+  .accordion-body .slider-row{ margin-bottom:18px; }
+  .switch{ position:relative; width:46px; height:26px; }
+  .switch input{ display:none; }
+  .switch span{
+    position:absolute; inset:0; background:var(--bg2); border-radius:999px;
+    transition:.2s; border:1px solid var(--line);
+  }
+  .switch span:before{
+    content:""; position:absolute; width:20px; height:20px; left:2px; top:2px;
+    background:var(--text-dim); border-radius:50%; transition:.2s;
+  }
+  .switch input:checked + span{ background: var(--accent); }
+  .switch input:checked + span:before{ transform:translateX(20px); background:#fff; }
+
+  input[type=text], input[type=number]{
+    width:100%; padding:13px 14px; border-radius:12px;
+    background:var(--bg2); border:1px solid var(--line); color:var(--text);
+    font-size:15px; outline:none;
+  }
+  input[type=text]:focus, input[type=number]:focus{ border-color:var(--accent); }
+  label.field-label{ font-size:13px; color:var(--text-dim); display:block; margin-bottom:7px; }
+  .field{ margin-bottom:14px; }
+  .field:last-child{ margin-bottom:0; }
+
+  .profile-item{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px; background:var(--bg2); border:1px solid var(--line);
+    border-radius:14px; margin-bottom:10px; cursor:pointer;
+  }
+  .profile-item:active{ transform:scale(.98); }
+  .profile-item .meta{ font-size:12.5px; color:var(--text-dim); margin-top:3px; }
+  .profile-item .del{ color:var(--danger); font-size:20px; padding:4px 8px; }
+  .empty-hint{ text-align:center; color:var(--text-dim); font-size:13.5px; padding:20px 10px; }
+
+  .toast{
+    position:fixed; left:50%; bottom:100px; transform:translateX(-50%) translateY(10px);
+    background:#20243a; border:1px solid var(--line); color:var(--text);
+    padding:11px 18px; border-radius:12px; font-size:13.5px;
+    opacity:0; transition:.2s; pointer-events:none; max-width:88%; text-align:center;
+    z-index:50;
+  }
+  .toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+  nav{
+    position:fixed; bottom:0; left:0; right:0;
+    background: rgba(19,21,32,.92); backdrop-filter: blur(14px);
+    border-top:1px solid var(--line);
+    display:flex; padding: 8px 8px calc(8px + env(safe-area-inset-bottom));
+    z-index:40;
+  }
+  nav button{
+    flex:1; background:none; border:none; color:var(--text-dim);
+    display:flex; flex-direction:column; align-items:center; gap:4px;
+    font-size:11.5px; padding:8px 0; cursor:pointer;
+  }
+  nav button .ic{ font-size:20px; }
+  nav button.active{ color: var(--accent2); }
+
+  .icon-btn{
+    width:38px; height:38px; border-radius:50%; flex-shrink:0;
+    border:1px solid var(--line); background:var(--card2); color:var(--text);
+    display:flex; align-items:center; justify-content:center;
+    font-size:17px; cursor:pointer; transition: transform .15s ease;
+  }
+  .icon-btn:active{ transform: scale(.9); }
+  .header-right{ display:flex; align-items:center; gap:10px; }
+
+  .drawer-overlay{
+    position:fixed; inset:0; background:rgba(6,7,11,.55);
+    opacity:0; pointer-events:none; transition:.22s ease; z-index:60;
+  }
+  .drawer-overlay.open{ opacity:1; pointer-events:all; }
+  .drawer{
+    position:fixed; top:0; right:0; bottom:0; width:88%; max-width:400px;
+    background: linear-gradient(180deg, #171a26, #12141d);
+    border-left:1px solid var(--line);
+    transform: translateX(100%);
+    transition: transform .28s cubic-bezier(.22,1,.36,1);
+    overflow-y:auto;
+    padding: calc(20px + env(safe-area-inset-top)) 18px calc(30px + env(safe-area-inset-bottom));
+  }
+  .drawer-overlay.open .drawer{ transform: translateX(0); }
+  .drawer-header{ display:flex; align-items:center; justify-content:space-between; margin-bottom:16px; }
+  .drawer-header h2{ font-size:20px; font-weight:800; margin:0; letter-spacing:-.3px; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Steuerung</h1>
+  <div class="header-right">
+    <div class="status-pill"><span class="dot" id="statusDot"></span><span id="statusText">Getrennt</span></div>
+    <button class="icon-btn" id="settingsOpenBtn" title="Einstellungen">⚙️</button>
+  </div>
+</header>
+
+<div class="drawer-overlay" id="settingsOverlay">
+  <div class="drawer" id="settingsDrawer">
+    <div class="drawer-header">
+      <h2>Einstellungen</h2>
+      <button class="icon-btn" id="settingsCloseBtn">✕</button>
+    </div>
+    <div id="settingsBody">
+
+      <div class="card">
+        <h2>Verbindung</h2>
+        <div class="field">
+          <label class="field-label">Connection Key</label>
+          <input type="text" id="connKeyInput" placeholder="z. B. AtsG9Cbq" autocapitalize="off" autocorrect="off">
+        </div>
+        <div class="row">
+          <button class="btn btn-accent" id="connectBtn">Verbinden</button>
+          <button class="btn btn-ghost" id="disconnectBtn">Trennen</button>
+        </div>
+        <div class="field" style="margin-top:14px;" id="deviceInfoBox"></div>
+      </div>
+
+      <div class="card">
+        <h2>Steuerung teilen</h2>
+        <div class="empty-hint" style="padding:0 0 12px; text-align:left;">
+          Erzeugt einen Link mit deinem Connection Key. Wer den Link öffnet, kann dein Gerät sofort mitsteuern – ohne den Key selbst einzugeben.
+        </div>
+        <div class="row">
+          <button class="btn btn-block" id="genShareLinkBtn">Link erzeugen</button>
+          <button class="btn btn-block" id="copyShareLinkBtn" style="flex:0 0 auto;">Kopieren</button>
+        </div>
+        <input type="text" id="shareLinkOutput" readonly style="margin-top:12px;" placeholder="noch kein Link erzeugt">
+      </div>
+
+      <div class="card">
+        <h2>Update hochladen</h2>
+        <div class="empty-hint" style="padding:0 0 12px; text-align:left;">
+          Lädt genau die Version, die du gerade in diesem Browser-Tab siehst, direkt in dein GitHub-Repo hoch. GitHub Pages baut die Seite danach automatisch neu (meist unter einer Minute).
+        </div>
+        <div style="font-family:monospace; font-size:12px; font-weight:600; color:var(--text); background:var(--bg2); border:1px solid var(--line); border-radius:10px; padding:10px 12px; margin-bottom:12px;" id="deployRepoLabel"></div>
+
+        <label class="field-label">1 · Token besorgen</label>
+        <a id="deployTokenLink" href="#" target="_blank" rel="noopener" class="btn btn-block btn-accent" style="display:block; text-align:center; text-decoration:none; margin-bottom:8px;">Token-Seite öffnen (vorausgefüllt)</a>
+        <div class="empty-hint" style="padding:0 0 14px; text-align:left; font-size:11.5px;">
+          Öffnet GitHub mit Name, Beschreibung, 90 Tagen Ablauf und „Contents: Read and write" vorausgefüllt. Dort nur noch bei „Only select repositories" → <b style="color:var(--text);">Sipe99/index.html</b> anhaken und „Generate token" klicken.
+        </div>
+
+        <label class="field-label">2 · Token einfügen</label>
+        <input type="text" id="deployTokenInput" placeholder="github_pat_…" style="margin-bottom:8px;">
+        <div class="row" style="margin-bottom:16px;">
+          <button class="btn" id="deployTokenPasteBtn" style="font-size:12.5px;">Aus Zwischenablage einfügen</button>
+          <button class="btn btn-ghost" id="deployTokenClearBtn" style="font-size:12.5px; flex:0 0 auto; color:var(--danger);">Löschen</button>
+        </div>
+
+        <label class="field-label">3 · Hochladen</label>
+        <button class="btn btn-accent btn-block" id="deployNowBtn">Update hochladen</button>
+        <div id="deployProgressWrap" style="display:none; margin-top:14px;">
+          <div style="height:8px; border-radius:999px; background:var(--bg2); overflow:hidden;">
+            <div id="deployBarFill" style="height:100%; width:0%; background:linear-gradient(90deg, var(--accent), var(--accent2)); transition:width .2s ease;"></div>
+          </div>
+          <div id="deployProgressLabel" class="empty-hint" style="padding:6px 0 0; font-size:11px;"></div>
+        </div>
+        <div id="deployStatusLine" class="empty-hint" style="padding:12px 0 0; text-align:left;"></div>
+      </div>
+
+      <div class="card">
+        <h2>Unregelmäßige Auf-Ab-Geschwindigkeit</h2>
+        <div class="toggle-row" style="margin-top:0;">
+          <span>Aktivieren</span>
+          <label class="switch"><input type="checkbox" id="asymEnabledToggle"><span></span></label>
+        </div>
+        <div class="slider-row" style="margin-top:16px;">
+          <input type="range" id="asymSlider" min="-100" max="100" value="0" step="5">
+        </div>
+        <div class="slider-label" style="font-size:11px;">
+          <span>⬇️ schneller runter</span>
+          <span id="asymCenterLabel">ausgeglichen</span>
+          <span>schneller rauf ⬆️</span>
+        </div>
+        <div class="empty-hint" style="padding:10px 0 0; text-align:left; font-size:11.5px;">
+          In der Mitte bewegt sich das Gerät gleichmäßig auf und ab. Nach links: schneller runter, langsamer rauf. Nach rechts: umgekehrt. Nutzt denselben Positionsmodus wie der ziehbare Punkt weiter oben – die genaue Zeitsteuerung ist eine Annäherung, da ich den exakten Reaktionswert des Geräts nicht aus der Doku verifizieren konnte. Bitte einmal ausprobieren.
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Zeitversatz-Ausgleich</h2>
+        <div class="slider-row">
+          <div class="slider-label"><span>Versatz</span><span class="val" id="syncOffsetVal">0 ms</span></div>
+          <input type="range" id="syncOffsetSlider" min="-2000" max="2000" value="0" step="50">
+        </div>
+        <div class="slider-label" style="font-size:11px; margin-top:-14px;">
+          <span>App voraus</span>
+          <span>Gerät voraus</span>
+        </div>
+        <div class="empty-hint" style="padding:10px 0 0; text-align:left; font-size:11.5px;">
+          Falls die App der echten Bewegung etwas voraus ist (oder hinterher hinkt), gleicht das die Zeitplanung von Live-Anzeige und asymmetrischer Auf-Ab-Bewegung entsprechend aus – in der Mitte (0 ms) ohne Ausgleich.
+        </div>
+      </div>
+
+      <div class="card">
+        <h2>Über</h2>
+        <div class="empty-hint" style="padding:0; text-align:left;">
+          Diese Seite verbindet sich direkt über die Cloud-API des Geräts (kein Bluetooth nötig, funktioniert über jedes Netzwerk). Alle Profile und Einstellungen werden nur lokal auf diesem Gerät gespeichert.
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<div class="drawer-overlay" id="profileEditorOverlay">
+  <div class="drawer" id="profileEditorDrawer">
+    <div class="drawer-header">
+      <h2>Profil bearbeiten</h2>
+      <button class="icon-btn" id="peCloseBtn">✕</button>
+    </div>
+
+    <div class="card">
+      <div class="row" style="align-items:center; margin-bottom:14px;">
+        <input type="text" id="peName" placeholder="Profilname" style="flex:1;">
+        <button class="star-btn" id="peStarBtn" title="Favorit">★</button>
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-label"><span>Speed-Bereich</span><span class="val"><span id="peSpeedMinVal">10</span>–<span id="peSpeedMaxVal">100</span></span></div>
+        <div class="range-track">
+          <div class="base"></div><div class="fill" id="peSpeedFill"></div>
+          <input type="range" id="peSpeedMin" min="0" max="100" value="10">
+          <input type="range" id="peSpeedMax" min="0" max="100" value="100">
+        </div>
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-label"><span>Höhe-Bereich (äußere Grenze)</span><span class="val"><span id="peHeightMinVal">0</span>–<span id="peHeightMaxVal">100</span></span></div>
+        <div class="range-track">
+          <div class="base"></div><div class="fill" id="peHeightFill"></div>
+          <input type="range" id="peHeightMin" min="0" max="100" value="0">
+          <input type="range" id="peHeightMax" min="0" max="100" value="100">
+        </div>
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-label"><span>Hub-Breite (wie viel davon genutzt wird)</span><span class="val" id="peHubWidthVal">100</span></div>
+        <input type="range" id="peHubWidth" min="0" max="100" value="100">
+      </div>
+      <div class="empty-hint" style="padding:0 0 10px; text-align:left; font-size:11.5px;">
+        Bei z. B. Höhe 0–100 und Hub-Breite 50 springt der genutzte Bereich pro Aktiv-Phase zufällig irgendwo zwischen 0–100, bleibt dabei aber immer genau 50 breit (z. B. 0–50, dann 30–80, dann 50–100 ...).
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-label"><span>Unregelmäßige Auf-Ab-Geschwindigkeit</span><span class="val" id="peAsymVal">ausgeglichen</span></div>
+        <input type="range" id="peAsym" min="-100" max="100" value="0" step="5">
+      </div>
+      <div class="slider-label" style="font-size:11px; margin-top:-14px;">
+        <span>⬇️ schneller runter</span>
+        <span>schneller rauf ⬆️</span>
+      </div>
+      <div class="empty-hint" style="padding:0 0 10px; text-align:left; font-size:11.5px;">
+        Ungleich 0 → dieses Profil bewegt sich beim Laufen absichtlich schneller in eine Richtung als in die andere.
+      </div>
+
+      <div class="empty-hint" style="padding:4px 0 10px; text-align:left;">
+        Optional: läuft automatisch in Phasen ab. In jeder Aktiv-Phase wird ein neuer Zufallswert aus dem Speed-Bereich gewählt. Auf 0 lassen für "keine Pausen" (dann läuft dauerhaft ein einzelner Zufallswert).
+      </div>
+
+      <div class="slider-row">
+        <div class="slider-label"><span>Aktiv-Dauer (Sek.)</span><span class="val"><span id="peActiveMinVal">0</span>–<span id="peActiveMaxVal">0</span></span></div>
+        <div class="range-track">
+          <div class="base"></div><div class="fill" id="peActiveFill"></div>
+          <input type="range" id="peActiveMin" min="0" max="20" value="0">
+          <input type="range" id="peActiveMax" min="0" max="20" value="0">
+        </div>
+      </div>
+
+      <div class="slider-row" id="pePauseDurationRow">
+        <div class="slider-label">
+          <span>Pausen-Dauer (Sek.) <button type="button" class="mini-gear mini-gear-inline" id="peNoPauseBtn" title="Keine Pause">Ø</button></span>
+          <span class="val"><span id="pePauseMinVal">0</span>–<span id="pePauseMaxVal">0</span></span>
+        </div>
+        <div class="range-track" id="pePauseTrackWrap">
+          <div class="base"></div><div class="fill" id="pePauseFill"></div>
+          <input type="range" id="pePauseMin" min="0" max="120" value="0">
+          <input type="range" id="pePauseMax" min="0" max="120" value="0">
+        </div>
+      </div>
+
+      <div class="pause-speed-head">
+        <span class="hint">In der Pause nicht ganz stoppen, sondern langsam weiterlaufen</span>
+        <button type="button" class="mini-gear" id="pePauseSpeedGear">⚙️</button>
+      </div>
+      <div class="pause-speed-row" id="pePauseSpeedRow">
+        <div class="slider-row">
+          <div class="slider-label"><span>Pause-Geschwindigkeit</span><span class="val" id="pePauseSpeedVal">0</span></div>
+          <input type="range" id="pePauseSpeed" min="0" max="100" value="0">
+        </div>
+      </div>
+
+      <div class="row" style="margin-top:8px;">
+        <button class="btn btn-accent btn-block" id="peSaveBtn">Speichern</button>
+        <button class="btn btn-ghost" id="peDeleteBtn" style="flex:0 0 auto; color:var(--danger);">Löschen</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<main>
+
+  <!-- STEUERUNG -->
+  <section class="screen active" id="screen-control">
+    <div class="card">
+      <div class="power-row">
+        <div class="live-tube" id="liveTube">
+          <div class="live-tube-band" id="liveTubeBand"></div>
+          <div class="live-tube-dot" id="liveTubeDot"></div>
+        </div>
+        <div class="power-wrap">
+          <button class="power-btn" id="powerBtn">START</button>
+        </div>
+      </div>
+      <div class="fav-grid" id="favGrid"></div>
+    </div>
+
+    <div class="card">
+      <h2>Geschwindigkeit</h2>
+      <div class="range-track">
+        <div class="base"></div>
+        <div class="fill" id="mainSpeedFill"></div>
+        <input type="range" id="mainSpeedMin" min="0" max="100" value="10">
+        <input type="range" id="mainSpeedMax" min="0" max="100" value="100">
+        <input type="range" id="mainSpeedNow" class="now-marker" min="0" max="100" value="50" step="1">
+      </div>
+      <div class="slider-label">
+        <span>Min <span class="val" id="mainSpeedMinVal">10</span></span>
+        <span>Max <span class="val" id="mainSpeedMaxVal">100</span></span>
+      </div>
+      <div class="empty-hint" style="padding:6px 0 0; text-align:left; font-size:11.5px;">
+        Läuft mit einem Zufallswert aus diesem Bereich · gerade aktiv, ziehbar: <b id="speedNowVal" style="color:var(--accent2);">–</b>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Höhe / Hubbereich</h2>
+      <div class="range-track">
+        <div class="base"></div>
+        <div class="fill" id="rangeFill"></div>
+        <input type="range" id="rangeMinSlider" min="0" max="100" value="0">
+        <input type="range" id="rangeMaxSlider" min="0" max="100" value="100">
+      </div>
+      <div class="slider-label">
+        <span>Min <span class="val" id="rangeMinVal">0</span></span>
+        <span>Max <span class="val" id="rangeMaxVal">100</span></span>
+      </div>
+    </div>
+
+    <div class="card">
+      <button class="random-btn" id="randomBtn">🎲 Random</button>
+      <div class="toggle-row">
+        <span>Auto-Random während Betrieb</span>
+        <label class="switch"><input type="checkbox" id="autoRandomToggle"><span></span></label>
+      </div>
+
+      <div class="accordion-toggle" id="randomSettingsToggle">
+        <span>Random-Einstellungen</span>
+        <span class="chevron">⌄</span>
+      </div>
+      <div class="accordion-body" id="randomSettingsBody">
+
+        <div class="slider-row">
+          <div class="slider-label"><span>Speed-Bereich</span><span class="val"><span id="rsSpeedMinVal">20</span>–<span id="rsSpeedMaxVal">90</span></span></div>
+          <div class="range-track">
+            <div class="base"></div><div class="fill" id="rsSpeedFill"></div>
+            <input type="range" id="rsSpeedMin" min="0" max="100" value="20">
+            <input type="range" id="rsSpeedMax" min="0" max="100" value="90">
+          </div>
+        </div>
+
+        <div class="slider-row">
+          <div class="slider-label"><span>Höhe-Bereich (äußere Grenze)</span><span class="val"><span id="rsRangeMinVal">0</span>–<span id="rsRangeMaxVal">100</span></span></div>
+          <div class="range-track">
+            <div class="base"></div><div class="fill" id="rsRangeFill"></div>
+            <input type="range" id="rsRangeMin" min="0" max="100" value="0">
+            <input type="range" id="rsRangeMax" min="0" max="100" value="100">
+          </div>
+        </div>
+
+        <div class="slider-row">
+          <div class="slider-label"><span>Hub-Breite (wie viel davon genutzt wird)</span><span class="val" id="rsHubWidthVal">100</span></div>
+          <input type="range" id="rsHubWidth" min="0" max="100" value="100">
+        </div>
+
+        <div class="slider-row">
+          <div class="slider-label"><span>Unregelmäßige Auf-Ab-Geschwindigkeit</span><span class="val" id="rsAsymVal">ausgeglichen</span></div>
+          <input type="range" id="rsAsym" min="-100" max="100" value="0" step="5">
+        </div>
+        <div class="slider-label" style="font-size:11px; margin-top:-14px;">
+          <span>⬇️ schneller runter</span>
+          <span>schneller rauf ⬆️</span>
+        </div>
+
+        <div class="slider-row">
+          <div class="slider-label"><span>Aktiv-Dauer (Sek.)</span><span class="val"><span id="rsIntervalMinVal">3</span>–<span id="rsIntervalMaxVal">5</span></span></div>
+          <div class="range-track">
+            <div class="base"></div><div class="fill" id="rsIntervalFill"></div>
+            <input type="range" id="rsIntervalMin" min="0" max="20" value="3">
+            <input type="range" id="rsIntervalMax" min="0" max="20" value="5">
+          </div>
+        </div>
+
+        <div class="slider-row" id="rsPauseDurationRow">
+          <div class="slider-label">
+            <span>Pausen-Dauer (Sek.) <button type="button" class="mini-gear mini-gear-inline" id="rsNoPauseBtn" title="Keine Pause">Ø</button></span>
+            <span class="val"><span id="rsPauseMinVal">3</span>–<span id="rsPauseMaxVal">5</span></span>
+          </div>
+          <div class="range-track" id="rsPauseTrackWrap">
+            <div class="base"></div><div class="fill" id="rsPauseFill"></div>
+            <input type="range" id="rsPauseMin" min="0" max="60" value="3">
+            <input type="range" id="rsPauseMax" min="0" max="60" value="5">
+          </div>
+        </div>
+
+        <div class="pause-speed-head">
+          <span class="hint">In der Pause nicht ganz stoppen, sondern langsam weiterlaufen</span>
+          <button type="button" class="mini-gear" id="rsPauseSpeedGear">⚙️</button>
+        </div>
+        <div class="pause-speed-row" id="rsPauseSpeedRow">
+          <div class="slider-row">
+            <div class="slider-label"><span>Pause-Geschwindigkeit</span><span class="val" id="rsPauseSpeedVal">0</span></div>
+            <input type="range" id="rsPauseSpeed" min="0" max="100" value="0">
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Profil speichern</h2>
+      <div class="row">
+        <input type="text" id="quickProfileName" placeholder="Profilname">
+        <button class="btn" id="quickSaveBtn" style="flex:0 0 auto;">Sichern</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- SKRIPT -->
+  <section class="screen" id="screen-script">
+    <div class="card">
+      <h2>Eigenes Ablauf-Skript</h2>
+      <div class="empty-hint" style="padding:0 0 14px; text-align:left;">
+        Baue dir eine feste Abfolge von Schritten: jeder Schritt läuft eine bestimmte Zeit lang mit fester Geschwindigkeit und Höhe, danach kommt automatisch der nächste Schritt dran.
+      </div>
+      <div id="scriptStepList"></div>
+      <div class="empty-hint" id="scriptEmpty">Noch keine Schritte angelegt.</div>
+      <button class="btn btn-block" id="scriptAddStepBtn" style="margin-top:6px;">+ Schritt hinzufügen</button>
+    </div>
+
+    <div class="card">
+      <div class="toggle-row" style="margin-top:0;">
+        <span>Skript wiederholen (Loop)</span>
+        <label class="switch"><input type="checkbox" id="scriptLoopToggle"><span></span></label>
+      </div>
+      <div class="row" style="margin-top:16px;">
+        <button class="btn btn-accent btn-block" id="scriptPlayBtn">▶ Skript starten</button>
+      </div>
+      <div class="empty-hint" id="scriptStatus" style="padding-top:12px; padding-bottom:0;"></div>
+    </div>
+  </section>
+
+  <!-- PROFILE -->
+  <section class="screen" id="screen-profiles">
+    <div class="card">
+      <h2>Meine Profile</h2>
+      <div id="profileList"></div>
+      <div class="empty-hint" id="profileEmpty">Noch keine Profile gespeichert.</div>
+      <button class="btn btn-block" id="profileAddBtn" style="margin-top:6px;">+ Neues Profil</button>
+    </div>
+  </section>
+
+</main>
+
+<nav>
+  <button class="nav-btn active" data-screen="screen-control"><span class="ic">🎛️</span>Steuerung</button>
+  <button class="nav-btn" data-screen="screen-script"><span class="ic">📜</span>Skript</button>
+  <button class="nav-btn" data-screen="screen-profiles"><span class="ic">📁</span>Profile</button>
+</nav>
+
+<!-- SCHRITT-VORLAGE (per JS geklont) -->
+<template id="scriptStepTemplate">
+  <div class="card script-step">
+    <div class="row-between" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+      <span class="step-title" style="font-weight:700; font-size:14px;"></span>
+      <button class="del step-del" style="color:var(--danger); font-size:19px; background:none; border:none; cursor:pointer;">✕</button>
+    </div>
+    <div class="slider-row">
+      <div class="slider-label"><span>Dauer (Sek.)</span><span class="val step-duration-val">10</span></div>
+      <input type="range" class="step-duration" min="1" max="120" value="10">
+    </div>
+    <div class="slider-row">
+      <div class="slider-label"><span>Speed</span><span class="val step-speed-val">50</span></div>
+      <input type="range" class="step-speed" min="0" max="100" value="50">
+    </div>
+    <div class="range-track">
+      <div class="base"></div><div class="fill step-height-fill"></div>
+      <input type="range" class="step-height-min" min="0" max="100" value="0">
+      <input type="range" class="step-height-max" min="0" max="100" value="100">
+    </div>
+    <div class="slider-label">
+      <span>Höhe Min <span class="val step-height-min-val">0</span></span>
+      <span>Höhe Max <span class="val step-height-max-val">100</span></span>
+    </div>
+  </div>
+</template>
+
+<div class="toast" id="toast"></div>
+
+<script>
+(function(){
+  const API_BASE = "https://www.handyfeeling.com/api/handy/v2";
+  const LS_KEY = "handyctl_state_v1";
+
+  // Ziel für den "Update hochladen"-Button: eigenes Repo, NICHT das der Stundennachweis-App
+  const DEPLOY_OWNER = "Sipe99";
+  const DEPLOY_REPO = "index.html";
+  const DEPLOY_BRANCH = "main";
+  const DEPLOY_PATH = "index.html";
+  const DEPLOY_TOKEN_LOCAL_KEY = "handyctl_deploy_token";
+
+  let state = {
+    connectionKey: "AtsG9Cbq",
+    speed: 50,
+    speedMin: 10,
+    speedMax: 100,
+    rangeMin: 0,
+    rangeMax: 100,
+    running: false,
+    connected: false,
+    profiles: [],
+    limits: { speedMin:20, speedMax:90, rangeMin:0, rangeMax:100, intervalMin:3, intervalMax:5, pauseMin:3, pauseMax:5, pauseSpeed:0, noPause:false, hubWidth:100, asymmetry:0 },
+    autoRandom: false,
+    script: [],
+    scriptLoop: false,
+    asymmetry: 0,
+    asymmetryEnabled: false,
+    syncOffsetMs: 0
+  };
+
+  function loadState(){
+    try{
+      const raw = localStorage.getItem(LS_KEY);
+      if(raw){
+        const saved = JSON.parse(raw);
+        if(!saved.connectionKey){ delete saved.connectionKey; } // leerer gespeicherter Key soll den Standard nicht überschreiben
+        Object.assign(state, saved);
+        if(state.limits.pauseSpeed === undefined) state.limits.pauseSpeed = 0;
+        if(state.limits.noPause === undefined) state.limits.noPause = false;
+        if(state.limits.hubWidth === undefined) state.limits.hubWidth = 100;
+        if(state.limits.asymmetry === undefined) state.limits.asymmetry = 0;
+      }
+    }catch(e){}
+    // Share-Link Unterstützung: ?k=XXXX oder #/remote?k=XXXX in der URL übernimmt den Connection Key
+    try{
+      const search = window.location.search ? window.location.search.slice(1) : "";
+      const hash = window.location.hash.includes("?") ? window.location.hash.split("?")[1] : "";
+      const params = new URLSearchParams(hash || search);
+      const keyFromUrl = params.get("k");
+      if(keyFromUrl){ state.connectionKey = keyFromUrl; }
+    }catch(e){}
+  }
+
+  function buildShareLink(){
+    const base = window.location.origin + window.location.pathname;
+    return base + "#/remote?k=" + encodeURIComponent(state.connectionKey || "");
+  }
+  function persist(){
+    try{
+      localStorage.setItem(LS_KEY, JSON.stringify({
+        connectionKey: state.connectionKey,
+        speed: state.speed,
+        speedMin: state.speedMin,
+        speedMax: state.speedMax,
+        rangeMin: state.rangeMin,
+        rangeMax: state.rangeMax,
+        profiles: state.profiles,
+        limits: state.limits,
+        script: state.script,
+        scriptLoop: state.scriptLoop,
+        asymmetry: state.asymmetry,
+        asymmetryEnabled: state.asymmetryEnabled,
+        syncOffsetMs: state.syncOffsetMs
+      }));
+    }catch(e){}
+  }
+
+  // ---------- Toast ----------
+  let toastTimer = null;
+  function toast(msg){
+    const el = document.getElementById("toast");
+    el.textContent = msg;
+    el.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(()=> el.classList.remove("show"), 2200);
+  }
+
+  // ---------- API ----------
+  async function apiRequest(path, method, body, keyOverride){
+    const key = keyOverride || state.connectionKey;
+    if(!key){
+      throw new Error("Kein Connection Key hinterlegt");
+    }
+    let res;
+    try{
+      res = await fetch(API_BASE + path, {
+        method: method || "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "X-Connection-Key": key
+        },
+        body: body ? JSON.stringify(body) : undefined
+      });
+    }catch(networkErr){
+      throw new Error("Kein Netzwerkzugriff möglich (Internetverbindung prüfen)");
+    }
+    if(!res.ok){
+      let msg = "Fehler " + res.status;
+      try{ const j = await res.json(); if(j && j.error && j.error.message) msg = j.error.message; }catch(e){}
+      if(res.status === 401 || res.status === 403) msg = "Connection Key ungültig";
+      if(res.status === 405) msg = "Fehler 405: falsche Methode für " + path;
+      throw new Error(msg);
+    }
+    try{ return await res.json(); }catch(e){ return {}; }
+  }
+
+  function setStatus(mode){
+    const dot = document.getElementById("statusDot");
+    const text = document.getElementById("statusText");
+    dot.classList.remove("on","pending");
+    if(mode === "on"){ dot.classList.add("on"); text.textContent = "Verbunden"; }
+    else if(mode === "pending"){ dot.classList.add("pending"); text.textContent = "Verbinde..."; }
+    else { text.textContent = "Getrennt"; }
+  }
+
+  function setDeviceInfoBox(html, isError){
+    const box = document.getElementById("deviceInfoBox");
+    box.innerHTML = html;
+    box.style.color = isError ? "var(--danger)" : "var(--text-dim)";
+  }
+
+  async function connect(){
+    const key = document.getElementById("connKeyInput").value.trim();
+    if(!key){ toast("Bitte Connection Key eingeben"); return; }
+    state.connectionKey = key;
+    setStatus("pending");
+    setDeviceInfoBox("Prüfe Verbindung zum Gerät …", false);
+    try{
+      // Schritt 1: ist das Gerät gerade online und mit diesem Key erreichbar?
+      const connectedResult = await apiRequest("/connected", "GET", null, key);
+      if(!connectedResult || connectedResult.connected !== true){
+        throw new Error("Gerät ist gerade nicht online. Prüfe, ob die App/das WLAN auf dem Gerät aktiv ist und der Connection Key stimmt.");
+      }
+      // Schritt 2: Geräteinfos holen
+      const info = await apiRequest("/info", "GET", null, key);
+      state.connected = true;
+      setStatus("on");
+      persist();
+      setDeviceInfoBox("Verbunden · Firmware " + (info.fwVersion || "?") + " · Modell " + (info.hwModelName || info.model || "unbekannt"), false);
+      toast("Verbunden");
+    }catch(e){
+      state.connected = false;
+      setStatus("off");
+      setDeviceInfoBox(e.message, true);
+      toast("Verbindung fehlgeschlagen");
+    }
+  }
+
+  function disconnect(){
+    cancelAllAutomation();
+    if(liveTubeDragging){ liveTubeDragging = false; }
+    state.running = false;
+    updatePowerBtn();
+    state.connected = false;
+    setStatus("off");
+    document.getElementById("deviceInfoBox").innerHTML = "";
+    toast("Getrennt");
+  }
+
+  async function start(){
+    try{
+      await apiRequest("/mode", "PUT", { mode: 0 }); // HAMP
+      await apiRequest("/hamp/start", "PUT");
+      state.running = true;
+      updatePowerBtn();
+    }catch(e){ toast("Start fehlgeschlagen: " + e.message); }
+  }
+  async function stop(){
+    try{
+      await apiRequest("/hamp/stop", "PUT");
+    }catch(e){ /* still stop UI locally */ }
+    state.running = false;
+    updatePowerBtn();
+  }
+  function updatePowerBtn(){
+    const btn = document.getElementById("powerBtn");
+    const automationActive = state.autoRandom
+      || (typeof scriptRunning !== "undefined" && scriptRunning)
+      || (typeof profileCycleRunning !== "undefined" && profileCycleRunning)
+      || (typeof asymRunning !== "undefined" && asymRunning);
+    if(state.running || automationActive){ btn.classList.add("running"); btn.textContent = "STOPP"; }
+    else { btn.classList.remove("running"); btn.textContent = "START"; }
+  }
+
+  async function pushSpeed(v){
+    state.speed = v;
+    const readout = document.getElementById("speedNowVal");
+    if(readout) readout.textContent = v;
+    const marker = document.getElementById("mainSpeedNow");
+    if(marker && document.activeElement !== marker) marker.value = v;
+    persist();
+    try{ await apiRequest("/hamp/velocity", "PUT", { velocity: v }); }
+    catch(e){ /* silent while dragging */ }
+  }
+
+  let lastRangeErrorAt = 0;
+  async function pushRange(min, max){
+    if(min > max) min = max;
+    state.rangeMin = min; state.rangeMax = max;
+    document.getElementById("rangeMinVal").textContent = min;
+    document.getElementById("rangeMaxVal").textContent = max;
+    updateRangeFill();
+    updateLiveTubeBand();
+    persist();
+    try{
+      await apiRequest("/settings", "PATCH", { min: min, max: max });
+    }catch(e){
+      const now = Date.now();
+      if(now - lastRangeErrorAt > 3000){
+        lastRangeErrorAt = now;
+        toast("Höhe nicht übernommen: " + e.message);
+      }
+    }
+  }
+
+  function updateRangeFill(){
+    const fill = document.getElementById("rangeFill");
+    fill.style.left = state.rangeMin + "%";
+    fill.style.width = (state.rangeMax - state.rangeMin) + "%";
+  }
+
+  // ---------- Live-Anzeige (senkrechter Block links vom Start-Button) ----------
+  function updateLiveTubeBand(){
+    const band = document.getElementById("liveTubeBand");
+    if(!band) return;
+    const lo = Math.min(state.rangeMin, state.rangeMax);
+    const hi = Math.max(state.rangeMin, state.rangeMax);
+    band.style.top = (100 - hi) + "%";
+    band.style.height = (hi - lo) + "%";
+  }
+
+  let liveTubeStart = null;
+  let liveTubeDragging = false;
+  function liveTubeLoop(timestamp){
+    const dot = document.getElementById("liveTubeDot");
+    if(dot && !liveTubeDragging){
+      const lo = Math.min(state.rangeMin, state.rangeMax);
+      const hi = Math.max(state.rangeMin, state.rangeMax);
+      if(state.running){
+        if(liveTubeStart === null) liveTubeStart = timestamp;
+        const elapsed = (timestamp - liveTubeStart + (state.syncOffsetMs || 0)) / 1000;
+        // Geschwindigkeit (0-100) auf eine plausible Auf-und-ab-Frequenz abbilden
+        const freq = 0.12 + (Math.max(1, state.speed) / 100) * 1.5; // Hz
+        const wave = (1 - Math.cos(elapsed * freq * 2 * Math.PI)) / 2; // 0..1
+        const pos = lo + (hi - lo) * wave;
+        dot.style.top = (100 - pos) + "%";
+      } else {
+        liveTubeStart = null;
+        dot.style.top = (100 - lo) + "%";
+      }
+    }
+    requestAnimationFrame(liveTubeLoop);
+  }
+
+  // Manuelles Ziehen am Punkt: schickt die Position direkt ans Gerät (HDSP-Modus)
+  let positionPushBusy = false;
+  async function pushPositionLive(posPercent){
+    if(positionPushBusy) return; // nicht überlappend senden, während gezogen wird
+    positionPushBusy = true;
+    try{
+      await apiRequest("/hdsp/xpva", "PUT", { xp: posPercent, va: 80, stopOnTarget: true });
+    }catch(e){ /* Gerät reagiert evtl. nicht auf jeden Zwischenschritt, das ist ok */ }
+    positionPushBusy = false;
+  }
+
+  // ---------- Unregelmäßige Auf-Ab-Geschwindigkeit ----------
+  let asymRunning = false;
+  let asymGoingDown = true;
+  let asymTimer = null;
+
+  function computeAsymVelocities(){
+    const asym = state.asymmetry || 0; // -100..100
+    const base = Math.max(10, state.speed || 50);
+    const shift = (Math.abs(asym) / 100) * 0.85;
+    let down, up;
+    if(asym < 0){
+      down = base * (1 + shift);
+      up = base * (1 - shift);
+    } else {
+      down = base * (1 - shift);
+      up = base * (1 + shift);
+    }
+    down = Math.max(5, Math.min(100, Math.round(down)));
+    up = Math.max(5, Math.min(100, Math.round(up)));
+    return { down, up };
+  }
+
+  async function asymStep(){
+    if(!asymRunning || !state.connected || !state.running) return;
+    const top = Math.max(state.rangeMin, state.rangeMax);
+    const bottom = Math.min(state.rangeMin, state.rangeMax);
+    const { down, up } = computeAsymVelocities();
+    const target = asymGoingDown ? bottom : top;
+    const velocity = asymGoingDown ? down : up;
+    try{
+      await apiRequest("/hdsp/xpva", "PUT", { xp: target, va: velocity, stopOnTarget: true });
+    }catch(e){ /* einzelner Schritt darf ruhig mal fehlschlagen */ }
+    // Grobe Schätzung der Fahrzeit, da keine Fortschritts-Rückmeldung vom Gerät kommt
+    const distance = Math.max(1, top - bottom);
+    let durationMs = Math.round(250 + (distance / 100) * (9000 / Math.max(5, velocity)) + (state.syncOffsetMs || 0));
+    durationMs = Math.max(80, durationMs);
+    asymGoingDown = !asymGoingDown;
+    asymTimer = setTimeout(asymStep, durationMs);
+  }
+
+  function startAsymMotion(){
+    if(asymRunning) return;
+    asymRunning = true;
+    asymGoingDown = true;
+    asymStep();
+  }
+  function stopAsymMotion(){
+    asymRunning = false;
+    if(asymTimer){ clearTimeout(asymTimer); asymTimer = null; }
+  }
+
+  function initLiveTubeDrag(){
+    const tube = document.getElementById("liveTube");
+    const dot = document.getElementById("liveTubeDot");
+    let wasRunning = false;
+
+    function posFromEvent(ev){
+      const rect = tube.getBoundingClientRect();
+      const y = (ev.touches ? ev.touches[0].clientY : ev.clientY) - rect.top;
+      let pct = 100 - (y / rect.height) * 100;
+      if(pct < 0) pct = 0;
+      if(pct > 100) pct = 100;
+      return Math.round(pct);
+    }
+
+    function onDown(ev){
+      if(!state.connected){ toast("Erst verbinden (Einstellungen)"); return; }
+      cancelAllAutomation();
+      liveTubeDragging = true;
+      wasRunning = state.running;
+      dot.setPointerCapture && ev.pointerId !== undefined && dot.setPointerCapture(ev.pointerId);
+      onMove(ev);
+      ev.preventDefault();
+    }
+    function onMove(ev){
+      if(!liveTubeDragging) return;
+      const pos = posFromEvent(ev);
+      dot.style.top = (100 - pos) + "%";
+      pushPositionLive(pos);
+    }
+    function onUp(){
+      if(!liveTubeDragging) return;
+      liveTubeDragging = false;
+      liveTubeStart = null;
+      if(wasRunning){
+        // Zurück in den normalen Auf-und-ab-Betrieb wechseln
+        apiRequest("/mode", "PUT", { mode: 0 }).catch(()=>{});
+        apiRequest("/hamp/start", "PUT").catch(()=>{});
+      }
+    }
+
+    dot.addEventListener("pointerdown", onDown);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    dot.addEventListener("touchstart", onDown, { passive:false });
+    window.addEventListener("touchmove", onMove, { passive:false });
+    window.addEventListener("touchend", onUp);
+  }
+
+  function rand(min, max){ return Math.round(min + Math.random() * (max - min)); }
+
+  function pickWindow(lo, hi, width){
+    const span = hi - lo;
+    const w = Math.min(Math.max(width, 0), span);
+    const maxOffset = span - w;
+    const offset = maxOffset > 0 ? rand(0, maxOffset) : 0;
+    return { min: lo + offset, max: lo + offset + w };
+  }
+
+  function randomizeOnce(){
+    const L = state.limits;
+    const speed = rand(Math.min(L.speedMin,L.speedMax), Math.max(L.speedMin,L.speedMax));
+    const lo = Math.min(L.rangeMin,L.rangeMax), hi = Math.max(L.rangeMin,L.rangeMax);
+    const win = pickWindow(lo, hi, L.hubWidth !== undefined ? L.hubWidth : (hi - lo));
+    document.getElementById("rangeMinSlider").value = win.min;
+    document.getElementById("rangeMaxSlider").value = win.max;
+    pushSpeed(speed);
+    pushRange(win.min, win.max);
+  }
+
+  let autoRandomTimer = null;
+
+  function autoRandomActivePhase(){
+    if(!state.autoRandom || !state.connected) return;
+    const L = state.limits;
+    const dur = rand(Math.min(L.intervalMin,L.intervalMax), Math.max(L.intervalMin,L.intervalMax)) * 1000;
+    if(L.asymmetry){
+      const speed = rand(Math.min(L.speedMin,L.speedMax), Math.max(L.speedMin,L.speedMax));
+      const lo = Math.min(L.rangeMin,L.rangeMax), hi = Math.max(L.rangeMin,L.rangeMax);
+      const win = pickWindow(lo, hi, L.hubWidth !== undefined ? L.hubWidth : (hi - lo));
+      state.rangeMin = win.min; state.rangeMax = win.max; state.speed = speed; state.asymmetry = L.asymmetry;
+      document.getElementById("rangeMinSlider").value = win.min;
+      document.getElementById("rangeMaxSlider").value = win.max;
+      if(!state.running){ state.running = true; updatePowerBtn(); }
+      startAsymMotion();
+      autoRandomTimer = setTimeout(()=>{ stopAsymMotion(); autoRandomPausePhase(); }, dur);
+    } else {
+      if(!state.running){ start(); }
+      randomizeOnce();
+      autoRandomTimer = setTimeout(autoRandomPausePhase, dur);
+    }
+  }
+
+  function autoRandomPausePhase(){
+    if(!state.autoRandom || !state.connected) return;
+    const L = state.limits;
+    if(L.noPause){ autoRandomActivePhase(); return; }
+    const pauseDur = rand(Math.min(L.pauseMin,L.pauseMax), Math.max(L.pauseMin,L.pauseMax)) * 1000;
+    if(pauseDur > 0){
+      if(L.pauseSpeed > 0){
+        pushSpeed(L.pauseSpeed);
+        if(!state.running) start();
+      } else {
+        stop();
+      }
+      autoRandomTimer = setTimeout(autoRandomActivePhase, pauseDur);
+    } else {
+      autoRandomActivePhase();
+    }
+  }
+
+  function setAutoRandom(on){
+    if(autoRandomTimer){ clearTimeout(autoRandomTimer); autoRandomTimer = null; }
+    state.autoRandom = on;
+    if(on){
+      if(!state.connected){
+        toast("Erst verbinden (Einstellungen)");
+        state.autoRandom = false;
+        document.getElementById("autoRandomToggle").checked = false;
+        return;
+      }
+      if(typeof scriptRunning !== "undefined" && scriptRunning) stopScript();
+      if(typeof profileCycleRunning !== "undefined" && profileCycleRunning) stopProfileCycle();
+      if(typeof asymRunning !== "undefined" && asymRunning){ stopAsymMotion(); document.getElementById("asymEnabledToggle").checked = false; }
+      autoRandomActivePhase();
+    }
+  }
+
+  // Stoppt jede laufende Automatik (Random, Skript, Profil-Zyklus) – bevor eine neue gestartet wird
+  function cancelAllAutomation(){
+    if(autoRandomTimer){ clearTimeout(autoRandomTimer); autoRandomTimer = null; }
+    if(state.autoRandom){
+      state.autoRandom = false;
+      const t = document.getElementById("autoRandomToggle");
+      if(t) t.checked = false;
+    }
+    if(typeof scriptRunning !== "undefined" && scriptRunning) stopScript();
+    if(typeof profileCycleRunning !== "undefined" && profileCycleRunning) stopProfileCycle();
+    if(typeof asymRunning !== "undefined" && asymRunning){
+      stopAsymMotion();
+      state.asymmetryEnabled = false;
+      const a = document.getElementById("asymEnabledToggle");
+      if(a) a.checked = false;
+    }
+  }
+
+  // ---------- Skript (eigene Ablauf-Sequenz) ----------
+  function addScriptStep(){
+    state.script.push({ duration: 10, speed: 50, heightMin: 0, heightMax: 100 });
+    persist();
+    renderScriptSteps();
+  }
+
+  function renderScriptSteps(){
+    const list = document.getElementById("scriptStepList");
+    const empty = document.getElementById("scriptEmpty");
+    const tpl = document.getElementById("scriptStepTemplate");
+    list.innerHTML = "";
+    if(!state.script.length){ empty.style.display = "block"; return; }
+    empty.style.display = "none";
+
+    state.script.forEach((step, idx)=>{
+      const node = tpl.content.cloneNode(true);
+      const card = node.querySelector(".script-step");
+      node.querySelector(".step-title").textContent = "Schritt " + (idx+1);
+
+      const durInput = node.querySelector(".step-duration");
+      const durVal = node.querySelector(".step-duration-val");
+      durInput.value = step.duration;
+      durVal.textContent = step.duration;
+      durInput.addEventListener("input", ()=>{
+        step.duration = parseInt(durInput.value);
+        durVal.textContent = step.duration;
+        persist();
+      });
+
+      const speedInput = node.querySelector(".step-speed");
+      const speedVal = node.querySelector(".step-speed-val");
+      speedInput.value = step.speed;
+      speedVal.textContent = step.speed;
+      speedInput.addEventListener("input", ()=>{
+        step.speed = parseInt(speedInput.value);
+        speedVal.textContent = step.speed;
+        persist();
+      });
+
+      const hMin = node.querySelector(".step-height-min");
+      const hMax = node.querySelector(".step-height-max");
+      const hFill = node.querySelector(".step-height-fill");
+      const hMinVal = node.querySelector(".step-height-min-val");
+      const hMaxVal = node.querySelector(".step-height-max-val");
+      hMin.value = step.heightMin; hMax.value = step.heightMax;
+      function renderHeight(){
+        hMinVal.textContent = step.heightMin;
+        hMaxVal.textContent = step.heightMax;
+        hFill.style.left = step.heightMin + "%";
+        hFill.style.width = Math.max(0, step.heightMax - step.heightMin) + "%";
+      }
+      renderHeight();
+      hMin.addEventListener("input", ()=>{
+        let v = parseInt(hMin.value);
+        if(v > step.heightMax) v = step.heightMax;
+        hMin.value = v; step.heightMin = v; renderHeight(); persist();
+      });
+      hMax.addEventListener("input", ()=>{
+        let v = parseInt(hMax.value);
+        if(v < step.heightMin) v = step.heightMin;
+        hMax.value = v; step.heightMax = v; renderHeight(); persist();
+      });
+
+      node.querySelector(".step-del").addEventListener("click", ()=>{
+        state.script.splice(idx,1);
+        if(scriptRunning) stopScript();
+        persist();
+        renderScriptSteps();
+      });
+
+      list.appendChild(node);
+    });
+  }
+
+  let scriptRunning = false;
+  let scriptTimer = null;
+  let scriptStepIndex = 0;
+
+  function playScript(){
+    if(!state.connected){ toast("Erst verbinden (Einstellungen)"); return; }
+    if(!state.script.length){ toast("Erst Schritte hinzufügen"); return; }
+    cancelAllAutomation();
+    scriptRunning = true;
+    scriptStepIndex = 0;
+    document.getElementById("scriptPlayBtn").textContent = "■ Skript stoppen";
+    runScriptStep();
+  }
+
+  function runScriptStep(){
+    if(!scriptRunning) return;
+    if(scriptStepIndex >= state.script.length){
+      if(state.scriptLoop && state.script.length){
+        scriptStepIndex = 0;
+      } else {
+        stopScript();
+        return;
+      }
+    }
+    const step = state.script[scriptStepIndex];
+    document.getElementById("scriptStatus").textContent =
+      "Schritt " + (scriptStepIndex+1) + " / " + state.script.length + " · " + step.duration + "s · Speed " + step.speed + " · Höhe " + step.heightMin + "–" + step.heightMax;
+
+    if(!state.running) start();
+    document.getElementById("rangeMinSlider").value = step.heightMin;
+    document.getElementById("rangeMaxSlider").value = step.heightMax;
+    pushSpeed(step.speed);
+    pushRange(step.heightMin, step.heightMax);
+
+    scriptStepIndex++;
+    scriptTimer = setTimeout(runScriptStep, step.duration * 1000);
+  }
+
+  function stopScript(){
+    scriptRunning = false;
+    if(scriptTimer){ clearTimeout(scriptTimer); scriptTimer = null; }
+    document.getElementById("scriptPlayBtn").textContent = "▶ Skript starten";
+    document.getElementById("scriptStatus").textContent = "";
+  }
+
+  // ---------- Update / Deploy (GitHub Pages) ----------
+  function toBase64Utf8(str){
+    const bytes = new TextEncoder().encode(str);
+    let binary = "";
+    const chunk = 0x8000;
+    for(let i=0; i<bytes.length; i+=chunk){
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i+chunk));
+    }
+    return btoa(binary);
+  }
+
+  async function deployNow(){
+    const tokenInput = document.getElementById("deployTokenInput");
+    const token = tokenInput.value.trim();
+    const statusLine = document.getElementById("deployStatusLine");
+    if(!token){ toast("Bitte zuerst ein Token eingeben"); return; }
+    const btn = document.getElementById("deployNowBtn");
+    const progWrap = document.getElementById("deployProgressWrap");
+    const progFill = document.getElementById("deployBarFill");
+    const progLabel = document.getElementById("deployProgressLabel");
+    function setProgress(pct, label){
+      progWrap.style.display = "block";
+      progFill.style.width = pct + "%";
+      progLabel.textContent = label || "";
+    }
+    btn.disabled = true;
+    statusLine.textContent = "";
+    setProgress(15, "Aktuelle Version wird geprüft…");
+    try{
+      const content = "<!DOCTYPE html>\n" + document.documentElement.outerHTML;
+      let sha = null;
+      const getRes = await fetch(`https://api.github.com/repos/${DEPLOY_OWNER}/${DEPLOY_REPO}/contents/${encodeURI(DEPLOY_PATH)}?ref=${encodeURIComponent(DEPLOY_BRANCH)}`, {
+        headers:{ Authorization:`Bearer ${token}`, Accept:"application/vnd.github+json" }
+      });
+      if(getRes.status === 200){ const data = await getRes.json(); sha = data.sha; }
+      else if(getRes.status !== 404){
+        const errData = await getRes.json().catch(()=>({}));
+        throw new Error("Prüfen fehlgeschlagen (" + getRes.status + "): " + (errData.message || "unbekannter Fehler"));
+      }
+      setProgress(50, "Wird hochgeladen…");
+      const body = { message: "Update via App – " + new Date().toISOString(), content: toBase64Utf8(content), branch: DEPLOY_BRANCH };
+      if(sha) body.sha = sha;
+      const putRes = await fetch(`https://api.github.com/repos/${DEPLOY_OWNER}/${DEPLOY_REPO}/contents/${encodeURI(DEPLOY_PATH)}`, {
+        method:"PUT",
+        headers:{ Authorization:`Bearer ${token}`, Accept:"application/vnd.github+json", "Content-Type":"application/json" },
+        body: JSON.stringify(body)
+      });
+      if(!putRes.ok){
+        const errData = await putRes.json().catch(()=>({}));
+        throw new Error("Hochladen fehlgeschlagen (" + putRes.status + "): " + (errData.message || "unbekannter Fehler"));
+      }
+      setProgress(100, "Fertig ✓");
+      const pagesUrl = `https://${DEPLOY_OWNER}.github.io/${DEPLOY_REPO}/`;
+      statusLine.innerHTML = "✓ Update hochgeladen. In ca. 1 Minute live unter <a href='" + pagesUrl + "' target='_blank' rel='noopener' style='color:var(--accent2);'>" + pagesUrl + "</a>";
+      toast("Update hochgeladen");
+      setTimeout(()=>{ progWrap.style.display = "none"; }, 1600);
+    }catch(e){
+      progWrap.style.display = "none";
+      if(String(e.message).includes("(401)")){
+        try{ localStorage.removeItem(DEPLOY_TOKEN_LOCAL_KEY); }catch(err){}
+        tokenInput.value = "";
+        statusLine.textContent = "Token ungültig oder abgelaufen – wurde entfernt. Bitte oben ein neues erstellen.";
+      } else {
+        statusLine.textContent = "Fehlgeschlagen: " + e.message + " – Token-Rechte und Repo-Namen prüfen.";
+      }
+    }finally{
+      btn.disabled = false;
+    }
+  }
+
+  // ---------- Profile-Zyklus (fixe Werte, alternierend Aktiv/Pause) ----------
+  let profileCycleRunning = false;
+  let profileCycleTimer = null;
+  let profileCycleActiveProfile = null;
+
+  function profileCycleActivePhase(){
+    if(!profileCycleRunning || !state.connected) return;
+    const p = profileCycleActiveProfile;
+    const speed = rand(Math.min(p.speedMin,p.speedMax), Math.max(p.speedMin,p.speedMax));
+    const lo = Math.min(p.min,p.max), hi = Math.max(p.min,p.max);
+    const win = pickWindow(lo, hi, p.hubWidth !== undefined ? p.hubWidth : (hi - lo));
+    document.getElementById("rangeMinSlider").value = win.min;
+    document.getElementById("rangeMaxSlider").value = win.max;
+    const dur = rand(Math.min(p.activeMin,p.activeMax), Math.max(p.activeMin,p.activeMax)) * 1000;
+    if(p.asymmetry){
+      state.rangeMin = win.min; state.rangeMax = win.max; state.speed = speed; state.asymmetry = p.asymmetry;
+      if(!state.running){ state.running = true; updatePowerBtn(); }
+      startAsymMotion();
+      profileCycleTimer = setTimeout(()=>{ stopAsymMotion(); profileCyclePausePhase(); }, dur);
+    } else {
+      if(!state.running) start();
+      pushSpeed(speed);
+      pushRange(win.min, win.max);
+      profileCycleTimer = setTimeout(profileCyclePausePhase, dur);
+    }
+  }
+  function profileCyclePausePhase(){
+    if(!profileCycleRunning || !state.connected) return;
+    const p = profileCycleActiveProfile;
+    if(p.noPause){ profileCycleActivePhase(); return; }
+    const pauseDur = rand(Math.min(p.pauseMin,p.pauseMax), Math.max(p.pauseMin,p.pauseMax)) * 1000;
+    if(pauseDur > 0){
+      if(p.pauseSpeed > 0){
+        pushSpeed(p.pauseSpeed);
+        if(!state.running) start();
+      } else {
+        stop();
+      }
+      profileCycleTimer = setTimeout(profileCycleActivePhase, pauseDur);
+    } else {
+      profileCycleActivePhase();
+    }
+  }
+  function stopProfileCycle(){
+    profileCycleRunning = false;
+    profileCycleActiveProfile = null;
+    if(profileCycleTimer){ clearTimeout(profileCycleTimer); profileCycleTimer = null; }
+  }
+
+  function applyProfileRun(p){
+    if(!state.connected){ toast("Erst verbinden (Einstellungen)"); return; }
+    cancelAllAutomation();
+    const hasCycle = (p.activeMax > 0) || (p.pauseMax > 0);
+    if(hasCycle){
+      profileCycleRunning = true;
+      profileCycleActiveProfile = p;
+      profileCycleActivePhase();
+      toast("Profil \"" + p.name + "\" läuft (mit Pausen)");
+    } else {
+      const speed = rand(Math.min(p.speedMin,p.speedMax), Math.max(p.speedMin,p.speedMax));
+      document.getElementById("rangeMinSlider").value = p.min;
+      document.getElementById("rangeMaxSlider").value = p.max;
+      pushSpeed(speed);
+      pushRange(p.min, p.max);
+      if(!state.running) start();
+      toast("Profil \"" + p.name + "\" geladen");
+    }
+  }
+
+  // ---------- Profile: Datenmodell, Favoriten-Grid, Liste, Editor ----------
+  let profileIdCounter = 1;
+  function nextProfileId(){ return "p" + (Date.now()) + "_" + (profileIdCounter++); }
+
+  function migrateProfiles(){
+    let changed = false;
+    state.profiles.forEach(p=>{
+      if(p.id === undefined){ p.id = nextProfileId(); changed = true; }
+      if(p.speedMin === undefined){ p.speedMin = (p.speed !== undefined ? p.speed : 50); changed = true; }
+      if(p.speedMax === undefined){ p.speedMax = (p.speed !== undefined ? p.speed : 50); changed = true; }
+      if(p.activeMin === undefined){ p.activeMin = 0; changed = true; }
+      if(p.activeMax === undefined){ p.activeMax = 0; changed = true; }
+      if(p.pauseMin === undefined){ p.pauseMin = 0; changed = true; }
+      if(p.pauseMax === undefined){ p.pauseMax = 0; changed = true; }
+      if(p.pauseSpeed === undefined){ p.pauseSpeed = 0; changed = true; }
+      if(p.noPause === undefined){ p.noPause = false; changed = true; }
+      if(p.hubWidth === undefined){ p.hubWidth = Math.abs((p.max||100) - (p.min||0)); changed = true; }
+      if(p.asymmetry === undefined){ p.asymmetry = 0; changed = true; }
+      if(p.favorite === undefined){ p.favorite = false; changed = true; }
+    });
+    if(!state.profiles.length){
+      state.profiles.push(
+        { id: nextProfileId(), name:"Langsam", speedMin:15, speedMax:30, min:20, max:60, hubWidth:40, activeMin:0, activeMax:0, pauseMin:0, pauseMax:0, pauseSpeed:0, noPause:false, favorite:true },
+        { id: nextProfileId(), name:"Mittel",  speedMin:40, speedMax:65, min:10, max:90, hubWidth:80, activeMin:0, activeMax:0, pauseMin:0, pauseMax:0, pauseSpeed:0, noPause:false, favorite:true },
+        { id: nextProfileId(), name:"Schnell", speedMin:75, speedMax:95, min:0,  max:100, hubWidth:100, activeMin:0, activeMax:0, pauseMin:0, pauseMax:0, pauseSpeed:0, noPause:false, favorite:true }
+      );
+      changed = true;
+    }
+    if(changed) persist();
+  }
+
+  function renderFavGrid(){
+    const grid = document.getElementById("favGrid");
+    grid.innerHTML = "";
+    const favs = state.profiles.filter(p=>p.favorite);
+    if(!favs.length){
+      grid.innerHTML = '<div class="fav-empty-hint">Markiere Profile mit ★, damit sie hier als Kästchen erscheinen.</div>';
+      return;
+    }
+    favs.forEach(p=>{
+      const box = document.createElement("div");
+      box.className = "fav-box";
+      box.innerHTML = '<div class="fav-gear">⚙️</div><div class="fav-name">'+ escapeHtml(p.name) +'</div><div class="fav-meta">'+ p.speedMin +'–'+ p.speedMax +' · '+ p.min +'–'+ p.max + (((p.activeMax>0)||(p.pauseMax>0)) ? ' ⏱' : '') +'</div>';
+      box.querySelector(".fav-gear").addEventListener("click", (ev)=>{
+        ev.stopPropagation();
+        openProfileEditor(p.id);
+      });
+      box.addEventListener("click", ()=> applyProfileRun(p));
+      grid.appendChild(box);
+    });
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c=> ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+  }
+
+  function renderProfiles(){
+    const list = document.getElementById("profileList");
+    const empty = document.getElementById("profileEmpty");
+    list.innerHTML = "";
+    if(!state.profiles.length){ empty.style.display = "block"; renderFavGrid(); return; }
+    empty.style.display = "none";
+    state.profiles.forEach(p=>{
+      const item = document.createElement("div");
+      item.className = "profile-item";
+      item.innerHTML =
+        '<div><div>'+ escapeHtml(p.name) +'</div><div class="meta">Speed '+ p.speedMin +'–'+ p.speedMax +' · Höhe '+ p.min +'–'+ p.max + (((p.activeMax>0)||(p.pauseMax>0)) ? ' · Pausen aktiv' : '') +'</div></div>'+
+        '<div style="display:flex; align-items:center; gap:4px;">'+
+          '<button class="star-btn'+ (p.favorite ? ' on' : '') +'" data-act="star">★</button>'+
+          '<button class="del" data-act="del">✕</button>'+
+        '</div>';
+      item.querySelector('[data-act="star"]').addEventListener("click", (ev)=>{
+        ev.stopPropagation();
+        p.favorite = !p.favorite;
+        persist(); renderProfiles(); renderFavGrid();
+      });
+      item.querySelector('[data-act="del"]').addEventListener("click", (ev)=>{
+        ev.stopPropagation();
+        if(profileCycleRunning && profileCycleActiveProfile && profileCycleActiveProfile.id === p.id){
+          cancelAllAutomation();
+        }
+        state.profiles = state.profiles.filter(x=> x.id !== p.id);
+        persist(); renderProfiles(); renderFavGrid();
+      });
+      item.addEventListener("click", ()=> openProfileEditor(p.id));
+      list.appendChild(item);
+    });
+    renderFavGrid();
+  }
+
+  let peEditingId = null;
+  let peWired = false;
+
+  function wirePeDualRangeOnce(){
+    if(peWired) return;
+    peWired = true;
+    wireDualRange("peSpeedMin","peSpeedMax","peSpeedFill","peSpeedMinVal","peSpeedMaxVal", 10, 100, ()=>{});
+    wireDualRange("peHeightMin","peHeightMax","peHeightFill","peHeightMinVal","peHeightMaxVal", 0, 100, ()=>{});
+    wireDualRange("peActiveMin","peActiveMax","peActiveFill","peActiveMinVal","peActiveMaxVal", 0, 0, ()=>{});
+    wireDualRange("pePauseMin","pePauseMax","pePauseFill","pePauseMinVal","pePauseMaxVal", 0, 0, ()=>{});
+  }
+
+  function openProfileEditor(id){
+    wirePeDualRangeOnce();
+    let p = state.profiles.find(x=> x.id === id);
+    if(!p){
+      p = { id: nextProfileId(), name:"Neues Profil", speedMin:10, speedMax:100, min:0, max:100, hubWidth:100, activeMin:0, activeMax:0, pauseMin:0, pauseMax:0, pauseSpeed:0, noPause:false, favorite:false };
+      state.profiles.push(p);
+    }
+    peEditingId = p.id;
+    document.getElementById("peName").value = p.name;
+    document.getElementById("peStarBtn").classList.toggle("on", !!p.favorite);
+    setDualRangeValues("peSpeedMin","peSpeedMax","peSpeedFill","peSpeedMinVal","peSpeedMaxVal", p.speedMin, p.speedMax);
+    setDualRangeValues("peHeightMin","peHeightMax","peHeightFill","peHeightMinVal","peHeightMaxVal", p.min, p.max);
+    document.getElementById("peHubWidth").value = p.hubWidth;
+    document.getElementById("peHubWidthVal").textContent = p.hubWidth;
+    document.getElementById("peAsym").value = p.asymmetry || 0;
+    document.getElementById("peAsymVal").textContent = (p.asymmetry || 0) === 0 ? "ausgeglichen" : ((p.asymmetry || 0) + "%");
+    setDualRangeValues("peActiveMin","peActiveMax","peActiveFill","peActiveMinVal","peActiveMaxVal", p.activeMin, p.activeMax);
+    setDualRangeValues("pePauseMin","pePauseMax","pePauseFill","pePauseMinVal","pePauseMaxVal", p.pauseMin, p.pauseMax);
+    document.getElementById("pePauseSpeed").value = p.pauseSpeed || 0;
+    document.getElementById("pePauseSpeedVal").textContent = p.pauseSpeed || 0;
+    document.getElementById("pePauseSpeedGear").classList.toggle("on", (p.pauseSpeed || 0) > 0);
+    document.getElementById("pePauseSpeedRow").classList.toggle("open", (p.pauseSpeed || 0) > 0);
+    document.getElementById("peNoPauseBtn").classList.toggle("on", !!p.noPause);
+    document.getElementById("pePauseTrackWrap").classList.toggle("disabled-row", !!p.noPause);
+    document.getElementById("profileEditorOverlay").classList.add("open");
+  }
+
+  function setDualRangeValues(minId,maxId,fillId,minValId,maxValId, mn, mx){
+    const minInput = document.getElementById(minId), maxInput = document.getElementById(maxId);
+    const lo = parseFloat(minInput.min), hi = parseFloat(minInput.max);
+    minInput.value = mn; maxInput.value = mx;
+    document.getElementById(minValId).textContent = mn;
+    document.getElementById(maxValId).textContent = mx;
+    const fill = document.getElementById(fillId);
+    fill.style.left = ((mn-lo)/(hi-lo)*100) + "%";
+    fill.style.width = Math.max(0, (mx-mn)/(hi-lo)*100) + "%";
+  }
+
+  function closeProfileEditor(){
+    document.getElementById("profileEditorOverlay").classList.remove("open");
+    peEditingId = null;
+  }
+
+  function saveProfileFromEditor(){
+    const p = state.profiles.find(x=> x.id === peEditingId);
+    if(!p) return;
+    p.name = document.getElementById("peName").value.trim() || "Profil";
+    p.favorite = document.getElementById("peStarBtn").classList.contains("on");
+    p.speedMin = parseInt(document.getElementById("peSpeedMin").value);
+    p.speedMax = parseInt(document.getElementById("peSpeedMax").value);
+    p.min = parseInt(document.getElementById("peHeightMin").value);
+    p.max = parseInt(document.getElementById("peHeightMax").value);
+    p.hubWidth = parseInt(document.getElementById("peHubWidth").value);
+    p.asymmetry = parseInt(document.getElementById("peAsym").value);
+    p.activeMin = parseInt(document.getElementById("peActiveMin").value);
+    p.activeMax = parseInt(document.getElementById("peActiveMax").value);
+    p.pauseMin = parseInt(document.getElementById("pePauseMin").value);
+    p.pauseMax = parseInt(document.getElementById("pePauseMax").value);
+    p.pauseSpeed = parseInt(document.getElementById("pePauseSpeed").value);
+    p.noPause = document.getElementById("peNoPauseBtn").classList.contains("on");
+    persist();
+    renderProfiles();
+    closeProfileEditor();
+    toast("Profil gespeichert");
+  }
+
+  function deleteProfileFromEditor(){
+    if(profileCycleRunning && profileCycleActiveProfile && profileCycleActiveProfile.id === peEditingId){
+      cancelAllAutomation();
+    }
+    state.profiles = state.profiles.filter(x=> x.id !== peEditingId);
+    persist();
+    renderProfiles();
+    closeProfileEditor();
+    toast("Profil gelöscht");
+  }
+
+  function saveProfile(name){
+    if(!name){ toast("Bitte Profilnamen eingeben"); return; }
+    state.profiles.push({ id: nextProfileId(), name, speedMin: state.speedMin, speedMax: state.speedMax, min: state.rangeMin, max: state.rangeMax, hubWidth: Math.abs(state.rangeMax-state.rangeMin), activeMin:0, activeMax:0, pauseMin:0, pauseMax:0, pauseSpeed:0, noPause:false, favorite:false });
+    persist();
+    renderProfiles();
+    toast("Profil gespeichert");
+  }
+
+  // ---------- Navigation ----------
+  function switchScreen(id){
+    document.querySelectorAll(".screen").forEach(s=> s.classList.toggle("active", s.id === id));
+    document.querySelectorAll(".nav-btn").forEach(b=> b.classList.toggle("active", b.dataset.screen === id));
+  }
+
+  // ---------- Generic dual-handle range slider ----------
+  function wireDualRange(minId, maxId, fillId, minValId, maxValId, initMin, initMax, onChange){
+    const minInput = document.getElementById(minId);
+    const maxInput = document.getElementById(maxId);
+    const fill = document.getElementById(fillId);
+    const minValEl = document.getElementById(minValId);
+    const maxValEl = document.getElementById(maxValId);
+    const lo = parseFloat(minInput.min), hi = parseFloat(minInput.max);
+
+    minInput.value = initMin; maxInput.value = initMax;
+
+    function render(){
+      let mn = parseInt(minInput.value), mx = parseInt(maxInput.value);
+      minValEl.textContent = mn; maxValEl.textContent = mx;
+      const pctMin = (mn - lo) / (hi - lo) * 100;
+      const pctMax = (mx - lo) / (hi - lo) * 100;
+      fill.style.left = pctMin + "%";
+      fill.style.width = Math.max(0, pctMax - pctMin) + "%";
+    }
+    minInput.addEventListener("input", ()=>{
+      let mn = parseInt(minInput.value), mx = parseInt(maxInput.value);
+      if(mn > mx){ mn = mx; minInput.value = mn; }
+      render();
+      onChange(mn, mx);
+    });
+    maxInput.addEventListener("input", ()=>{
+      let mn = parseInt(minInput.value), mx = parseInt(maxInput.value);
+      if(mx < mn){ mx = mn; maxInput.value = mx; }
+      render();
+      onChange(mn, mx);
+    });
+    render();
+  }
+
+  // ---------- Init / wiring ----------
+  function init(){
+    loadState();
+
+    document.getElementById("connKeyInput").value = state.connectionKey || "";
+    document.getElementById("rangeMinSlider").value = state.rangeMin;
+    document.getElementById("rangeMaxSlider").value = state.rangeMax;
+    document.getElementById("rangeMinVal").textContent = state.rangeMin;
+    document.getElementById("rangeMaxVal").textContent = state.rangeMax;
+    updateRangeFill();
+    updateLiveTubeBand();
+    requestAnimationFrame(liveTubeLoop);
+    initLiveTubeDrag();
+    migrateProfiles();
+    renderProfiles();
+    setStatus("off");
+
+    wireDualRange("mainSpeedMin","mainSpeedMax","mainSpeedFill","mainSpeedMinVal","mainSpeedMaxVal",
+      state.speedMin, state.speedMax,
+      (mn,mx)=>{
+        state.speedMin = mn; state.speedMax = mx; persist();
+        if(state.connected) pushSpeed(rand(mn,mx));
+        const marker = document.getElementById("mainSpeedNow");
+        let v = parseInt(marker.value);
+        if(v < mn) v = mn;
+        if(v > mx) v = mx;
+        marker.value = v;
+      });
+
+    const mainSpeedNowInput = document.getElementById("mainSpeedNow");
+    mainSpeedNowInput.value = state.speed;
+    document.getElementById("speedNowVal").textContent = state.speed;
+    mainSpeedNowInput.addEventListener("input", (e)=>{
+      let v = parseInt(e.target.value);
+      const mn = state.speedMin, mx = state.speedMax;
+      if(v < mn){ v = mn; e.target.value = v; }
+      if(v > mx){ v = mx; e.target.value = v; }
+      pushSpeed(v);
+    });
+
+    document.querySelectorAll(".nav-btn").forEach(b=>{
+      b.addEventListener("click", ()=> switchScreen(b.dataset.screen));
+    });
+
+    document.getElementById("powerBtn").addEventListener("click", ()=>{
+      if(!state.connected){ toast("Erst verbinden (Einstellungen)"); return; }
+      const automationActive = state.autoRandom
+        || (typeof scriptRunning !== "undefined" && scriptRunning)
+        || (typeof profileCycleRunning !== "undefined" && profileCycleRunning)
+        || (typeof asymRunning !== "undefined" && asymRunning);
+      if(state.running || automationActive){
+        cancelAllAutomation();
+        stop();
+      } else if(state.asymmetryEnabled){
+        cancelAllAutomation();
+        state.running = true;
+        updatePowerBtn();
+        startAsymMotion();
+      } else {
+        cancelAllAutomation();
+        pushSpeed(rand(Math.min(state.speedMin,state.speedMax), Math.max(state.speedMin,state.speedMax)));
+        start();
+      }
+    });
+
+    document.getElementById("rangeMinSlider").addEventListener("input", (e)=>{
+      let min = parseInt(e.target.value);
+      if(min > state.rangeMax) min = state.rangeMax;
+      e.target.value = min;
+      pushRange(min, state.rangeMax);
+    });
+    document.getElementById("rangeMaxSlider").addEventListener("input", (e)=>{
+      let max = parseInt(e.target.value);
+      if(max < state.rangeMin) max = state.rangeMin;
+      e.target.value = max;
+      pushRange(state.rangeMin, max);
+    });
+
+    document.getElementById("randomBtn").addEventListener("click", ()=>{
+      if(!state.connected){ toast("Erst verbinden (Einstellungen)"); return; }
+      randomizeOnce();
+    });
+    document.getElementById("autoRandomToggle").addEventListener("change", (e)=> setAutoRandom(e.target.checked));
+
+    document.getElementById("quickSaveBtn").addEventListener("click", ()=>{
+      const input = document.getElementById("quickProfileName");
+      saveProfile(input.value.trim());
+      input.value = "";
+    });
+
+    document.getElementById("connectBtn").addEventListener("click", connect);
+    document.getElementById("disconnectBtn").addEventListener("click", disconnect);
+
+    document.getElementById("genShareLinkBtn").addEventListener("click", ()=>{
+      if(!state.connectionKey){ toast("Erst Connection Key eingeben"); return; }
+      document.getElementById("shareLinkOutput").value = buildShareLink();
+    });
+    document.getElementById("copyShareLinkBtn").addEventListener("click", async ()=>{
+      const field = document.getElementById("shareLinkOutput");
+      if(!field.value){ toast("Erst Link erzeugen"); return; }
+      try{
+        await navigator.clipboard.writeText(field.value);
+        toast("Link kopiert");
+      }catch(e){
+        field.select();
+        toast("Bitte manuell kopieren");
+      }
+    });
+
+    // Random-Einstellungen: aufklappbarer Bereich
+    document.getElementById("randomSettingsToggle").addEventListener("click", ()=>{
+      document.getElementById("randomSettingsToggle").classList.toggle("open");
+      document.getElementById("randomSettingsBody").classList.toggle("open");
+    });
+
+    wireDualRange("rsSpeedMin","rsSpeedMax","rsSpeedFill","rsSpeedMinVal","rsSpeedMaxVal",
+      state.limits.speedMin, state.limits.speedMax,
+      (mn,mx)=>{ state.limits.speedMin = mn; state.limits.speedMax = mx; persist(); });
+
+    wireDualRange("rsRangeMin","rsRangeMax","rsRangeFill","rsRangeMinVal","rsRangeMaxVal",
+      state.limits.rangeMin, state.limits.rangeMax,
+      (mn,mx)=>{ state.limits.rangeMin = mn; state.limits.rangeMax = mx; persist(); });
+
+    const rsHubWidthInput = document.getElementById("rsHubWidth");
+    rsHubWidthInput.value = state.limits.hubWidth;
+    document.getElementById("rsHubWidthVal").textContent = state.limits.hubWidth;
+    rsHubWidthInput.addEventListener("input", (e)=>{
+      state.limits.hubWidth = parseInt(e.target.value);
+      document.getElementById("rsHubWidthVal").textContent = state.limits.hubWidth;
+      persist();
+    });
+
+    const rsAsymInput = document.getElementById("rsAsym");
+    rsAsymInput.value = state.limits.asymmetry;
+    document.getElementById("rsAsymVal").textContent = state.limits.asymmetry === 0 ? "ausgeglichen" : (state.limits.asymmetry + "%");
+    rsAsymInput.addEventListener("input", (e)=>{
+      state.limits.asymmetry = parseInt(e.target.value);
+      document.getElementById("rsAsymVal").textContent = state.limits.asymmetry === 0 ? "ausgeglichen" : (state.limits.asymmetry + "%");
+      persist();
+    });
+
+    wireDualRange("rsIntervalMin","rsIntervalMax","rsIntervalFill","rsIntervalMinVal","rsIntervalMaxVal",
+      state.limits.intervalMin, state.limits.intervalMax,
+      (mn,mx)=>{ state.limits.intervalMin = mn; state.limits.intervalMax = mx; persist(); });
+
+    wireDualRange("rsPauseMin","rsPauseMax","rsPauseFill","rsPauseMinVal","rsPauseMaxVal",
+      state.limits.pauseMin, state.limits.pauseMax,
+      (mn,mx)=>{ state.limits.pauseMin = mn; state.limits.pauseMax = mx; persist(); });
+
+    // Pause-Geschwindigkeit (Random)
+    const rsPauseSpeedInput = document.getElementById("rsPauseSpeed");
+    rsPauseSpeedInput.value = state.limits.pauseSpeed;
+    document.getElementById("rsPauseSpeedVal").textContent = state.limits.pauseSpeed;
+    if(state.limits.pauseSpeed > 0){
+      document.getElementById("rsPauseSpeedGear").classList.add("on");
+      document.getElementById("rsPauseSpeedRow").classList.add("open");
+    }
+    document.getElementById("rsPauseSpeedGear").addEventListener("click", (e)=>{
+      e.target.classList.toggle("on");
+      document.getElementById("rsPauseSpeedRow").classList.toggle("open");
+    });
+    rsPauseSpeedInput.addEventListener("input", (e)=>{
+      state.limits.pauseSpeed = parseInt(e.target.value);
+      document.getElementById("rsPauseSpeedVal").textContent = state.limits.pauseSpeed;
+      persist();
+    });
+
+    // Keine Pause (Random)
+    const rsNoPauseBtn = document.getElementById("rsNoPauseBtn");
+    rsNoPauseBtn.classList.toggle("on", !!state.limits.noPause);
+    document.getElementById("rsPauseTrackWrap").classList.toggle("disabled-row", !!state.limits.noPause);
+    rsNoPauseBtn.addEventListener("click", (e)=>{
+      e.target.classList.toggle("on");
+      const isOn = e.target.classList.contains("on");
+      state.limits.noPause = isOn;
+      document.getElementById("rsPauseTrackWrap").classList.toggle("disabled-row", isOn);
+      persist();
+    });
+
+    // Einstellungen-Drawer (oben rechts, wie in der Stundennachweis-App)
+    document.getElementById("settingsOpenBtn").addEventListener("click", ()=>{
+      document.getElementById("settingsOverlay").classList.add("open");
+    });
+    document.getElementById("settingsCloseBtn").addEventListener("click", ()=>{
+      document.getElementById("settingsOverlay").classList.remove("open");
+    });
+    document.getElementById("settingsOverlay").addEventListener("click", (e)=>{
+      if(e.target.id === "settingsOverlay") document.getElementById("settingsOverlay").classList.remove("open");
+    });
+
+    // Skript
+    renderScriptSteps();
+    document.getElementById("scriptAddStepBtn").addEventListener("click", addScriptStep);
+    document.getElementById("scriptLoopToggle").checked = !!state.scriptLoop;
+    document.getElementById("scriptLoopToggle").addEventListener("change", (e)=>{
+      state.scriptLoop = e.target.checked;
+      persist();
+    });
+    document.getElementById("scriptPlayBtn").addEventListener("click", ()=>{
+      scriptRunning ? stopScript() : playScript();
+    });
+
+    // Update / Deploy
+    document.getElementById("deployRepoLabel").textContent = DEPLOY_OWNER + "/" + DEPLOY_REPO + " · " + DEPLOY_BRANCH + " · " + DEPLOY_PATH;
+    const prefillTokenUrl = "https://github.com/settings/personal-access-tokens/new?"
+      + "name=" + encodeURIComponent("Steuerung Deploy")
+      + "&description=" + encodeURIComponent("Veröffentlichen der Steuerungs-App auf GitHub Pages")
+      + "&expires_in=90&contents=write";
+    document.getElementById("deployTokenLink").href = prefillTokenUrl;
+
+    let savedDeployToken = "";
+    try{ savedDeployToken = localStorage.getItem(DEPLOY_TOKEN_LOCAL_KEY) || ""; }catch(e){}
+    const deployTokenInput = document.getElementById("deployTokenInput");
+    deployTokenInput.value = savedDeployToken;
+    deployTokenInput.addEventListener("input", ()=>{
+      try{ localStorage.setItem(DEPLOY_TOKEN_LOCAL_KEY, deployTokenInput.value.trim()); }catch(e){}
+    });
+    document.getElementById("deployTokenClearBtn").addEventListener("click", ()=>{
+      deployTokenInput.value = "";
+      try{ localStorage.removeItem(DEPLOY_TOKEN_LOCAL_KEY); }catch(e){}
+      toast("Token gelöscht");
+    });
+    document.getElementById("deployTokenPasteBtn").addEventListener("click", async ()=>{
+      try{
+        const text = (await navigator.clipboard.readText()).trim();
+        if(!text){ toast("Zwischenablage ist leer"); return; }
+        deployTokenInput.value = text;
+        try{ localStorage.setItem(DEPLOY_TOKEN_LOCAL_KEY, text); }catch(e){}
+        toast("Token eingefügt");
+      }catch(e){
+        toast("Einfügen nicht möglich – bitte manuell einfügen");
+      }
+    });
+    document.getElementById("deployNowBtn").addEventListener("click", deployNow);
+
+    // Unregelmäßige Auf-Ab-Geschwindigkeit
+    const asymSlider = document.getElementById("asymSlider");
+    const asymEnabledToggle = document.getElementById("asymEnabledToggle");
+    asymSlider.value = state.asymmetry;
+    asymEnabledToggle.checked = !!state.asymmetryEnabled;
+    function updateAsymCenterLabel(){
+      const v = state.asymmetry;
+      document.getElementById("asymCenterLabel").textContent = v === 0 ? "ausgeglichen" : (v + "%");
+    }
+    updateAsymCenterLabel();
+    asymSlider.addEventListener("input", (e)=>{
+      state.asymmetry = parseInt(e.target.value);
+      updateAsymCenterLabel();
+      persist();
+    });
+    asymEnabledToggle.addEventListener("change", (e)=>{
+      state.asymmetryEnabled = e.target.checked;
+      if(e.target.checked){
+        // Schließt sich mit den anderen Automatiken gegenseitig aus
+        if(state.autoRandom) setAutoRandom(false);
+        if(typeof scriptRunning !== "undefined" && scriptRunning) stopScript();
+        if(typeof profileCycleRunning !== "undefined" && profileCycleRunning) stopProfileCycle();
+      } else if(asymRunning){
+        stopAsymMotion();
+        if(state.running){ state.running = false; updatePowerBtn(); }
+      }
+      persist();
+    });
+
+    // Zeitversatz-Ausgleich
+    const syncOffsetSlider = document.getElementById("syncOffsetSlider");
+    syncOffsetSlider.value = state.syncOffsetMs;
+    document.getElementById("syncOffsetVal").textContent = state.syncOffsetMs + " ms";
+    syncOffsetSlider.addEventListener("input", (e)=>{
+      state.syncOffsetMs = parseInt(e.target.value);
+      document.getElementById("syncOffsetVal").textContent = state.syncOffsetMs + " ms";
+      persist();
+    });
+
+    // Profil-Editor
+    document.getElementById("peCloseBtn").addEventListener("click", closeProfileEditor);
+    document.getElementById("profileEditorOverlay").addEventListener("click", (e)=>{
+      if(e.target.id === "profileEditorOverlay") closeProfileEditor();
+    });
+    document.getElementById("peStarBtn").addEventListener("click", ()=>{
+      document.getElementById("peStarBtn").classList.toggle("on");
+    });
+    document.getElementById("pePauseSpeedGear").addEventListener("click", (e)=>{
+      e.target.classList.toggle("on");
+      document.getElementById("pePauseSpeedRow").classList.toggle("open");
+    });
+    document.getElementById("pePauseSpeed").addEventListener("input", (e)=>{
+      document.getElementById("pePauseSpeedVal").textContent = e.target.value;
+    });
+    document.getElementById("peNoPauseBtn").addEventListener("click", (e)=>{
+      e.target.classList.toggle("on");
+      document.getElementById("pePauseTrackWrap").classList.toggle("disabled-row", e.target.classList.contains("on"));
+    });
+    document.getElementById("peHubWidth").addEventListener("input", (e)=>{
+      document.getElementById("peHubWidthVal").textContent = e.target.value;
+    });
+    document.getElementById("peAsym").addEventListener("input", (e)=>{
+      const v = parseInt(e.target.value);
+      document.getElementById("peAsymVal").textContent = v === 0 ? "ausgeglichen" : (v + "%");
+    });
+    document.getElementById("peSaveBtn").addEventListener("click", saveProfileFromEditor);
+    document.getElementById("peDeleteBtn").addEventListener("click", deleteProfileFromEditor);
+    document.getElementById("profileAddBtn").addEventListener("click", ()=> openProfileEditor(null));
+  }
+
+  document.addEventListener("DOMContentLoaded", init);
+})();
+</script>
+</body>
+</html>
